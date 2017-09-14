@@ -29,7 +29,6 @@ scenarios:
       queue.buffering.max.ms: 100
   msg_flow_no_pause:
     repeat_times: 5
-    repeat_pause: 1
     topic: test_topic
     message_size: 10
     message_count: 5000000
