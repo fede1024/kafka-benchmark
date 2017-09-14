@@ -1,0 +1,39 @@
+---
+scenarios:
+  byte_flow_bursts:
+    repeat_times: 5
+    repeat_pause: 10
+    topic: test_topic
+    message_size: 10000
+    message_count: 100000
+    producer_config:
+      bootstrap.servers: localhost:9092
+      queue.buffering.max.ms: 100
+  msg_flow_bursts:
+    repeat_times: 5
+    repeat_pause: 2
+    topic: test_topic
+    message_size: 10
+    message_count: 5000000
+    producer_config:
+      bootstrap.servers: localhost:9092
+      queue.buffering.max.messages: 1000000
+      queue.buffering.max.ms: 100
+  byte_flow_no_pause:
+    repeat_times: 5
+    topic: test_topic
+    message_size: 10000
+    message_count: 100000
+    producer_config:
+      bootstrap.servers: localhost:9092
+      queue.buffering.max.ms: 100
+  msg_flow_no_pause:
+    repeat_times: 5
+    repeat_pause: 1
+    topic: test_topic
+    message_size: 10
+    message_count: 5000000
+    producer_config:
+      bootstrap.servers: localhost:9092
+      queue.buffering.max.messages: 1000000
+      queue.buffering.max.ms: 100
