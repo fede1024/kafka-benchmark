@@ -81,7 +81,7 @@ fn base_producer_scenario(scenario: &Scenario, cache: Arc<CachedMessages>) -> Sc
     producer.send_copy::<str, str>(&scenario.topic, None, Some("warmup"), None, None, None)
         .expect("Producer error");
     delivered_message_counter.fetch_sub(1, Ordering::Relaxed);
-    producer.flush(1000);
+    producer.flush(120000);
 
     let start = Instant::now();
     let threads = (0..scenario.threads).map(|i| {
