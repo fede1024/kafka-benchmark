@@ -2,7 +2,7 @@
 scenarios:
   byte_flow_bursts:
     repeat_times: 5
-    repeat_pause: 10
+    repeat_pause: 20
     topic: test_topic
     message_size: 10000
     message_count: 100000
