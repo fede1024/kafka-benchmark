@@ -3,6 +3,7 @@ use rdkafka::util::duration_to_millis;
 use config::Scenario;
 
 use std::time::Duration;
+use std::cmp;
 
 
 struct Bytes(usize);
@@ -31,6 +32,19 @@ impl ToHuman for Bytes {
     }
 }
 
+#[derive(Debug)]
+pub struct ThreadStats {
+    delivered_count: usize,
+    duration: Duration
+}
+
+impl ThreadStats {
+    pub fn new(delivered_count: usize, duration: Duration) -> ThreadStats {
+        ThreadStats { delivered_count, duration }
+    }
+}
+
+#[derive(Debug)]
 pub struct ScenarioStats<'a> {
     scenario: &'a Scenario,
     delivered_count: usize,
@@ -38,8 +52,13 @@ pub struct ScenarioStats<'a> {
 }
 
 impl<'a> ScenarioStats<'a> {
-    pub fn new(scenario: &'a Scenario, delivered_count: usize, duration: Duration) -> ScenarioStats<'a> {
-        ScenarioStats { scenario, delivered_count, duration }
+    pub fn new(scenario: &'a Scenario) -> ScenarioStats<'a> {
+        ScenarioStats { scenario, delivered_count: 0, duration: Duration::from_secs(0) }
+    }
+
+    pub fn add_thread_stats(&mut self, thread_stats: &ThreadStats) {
+        self.delivered_count += thread_stats.delivered_count;
+        self.duration = cmp::max(self.duration, thread_stats.duration);
     }
 
     pub fn print(&self) {

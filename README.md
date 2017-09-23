@@ -20,43 +20,32 @@ Core(TM) i7-4712HQ CPU @ 2.30GHz:
 → cargo install kafka-benchmark
 [...]
 
-→ kafka-benchmark --config producer_benchmark_config.yaml
-Scenario: byte_flow_bursts (message size: 10KB), repeat 5 times, 10s pause after each
-* Produced 100000 messages (953.674 MB) in 4.791 seconds using 1 thread
-    20872 messages/s
-    199.055 MB/s
-* Produced 100000 messages (953.674 MB) in 4.135 seconds using 1 thread
-    24184 messages/s
-    230.635 MB/s
-* Produced 100000 messages (953.674 MB) in 4.150 seconds using 1 thread
-    24096 messages/s
-    229.801 MB/s
-* Produced 100000 messages (953.674 MB) in 3.643 seconds using 1 thread
-    27450 messages/s
-    261.783 MB/s
-* Produced 100000 messages (953.674 MB) in 4.344 seconds using 1 thread
-    23020 messages/s
-    219.538 MB/s
-Average: 23737 messages/s, 226.375 MB/s
+$ kafka-benchmark --config producer_benchmark_config.yaml --scenario msg_bursts
+Scenario: msg_bursts, repeat 3 times, 10s pause after each
+* Produced 20000000 messages (190.735 MB) in 5.918 seconds using 6 threads
+    3379520 messages/s
+    32.230 MB/s
+* Produced 20000000 messages (190.735 MB) in 5.106 seconds using 6 threads
+    3916960 messages/s
+    37.355 MB/s
+* Produced 20000000 messages (190.735 MB) in 5.504 seconds using 6 threads
+    3633721 messages/s
+    34.654 MB/s
+Average: 3629984 messages/s, 34.618 MB/s
 
-Scenario: msg_flow_bursts (message size: 10B), repeat 5 times, 2s pause after each
-* Produced 5000000 messages (47.684 MB) in 5.718 seconds using 1 thread
-    874432 messages/s
-    8.339 MB/s
-* Produced 5000000 messages (47.684 MB) in 5.720 seconds using 1 thread
-    874126 messages/s
-    8.336 MB/s
-* Produced 5000000 messages (47.684 MB) in 5.747 seconds using 1 thread
-    870019 messages/s
-    8.297 MB/s
-* Produced 5000000 messages (47.684 MB) in 5.546 seconds using 1 thread
-    901551 messages/s
-    8.598 MB/s
-* Produced 5000000 messages (47.684 MB) in 7.334 seconds using 1 thread
-    681756 messages/s
-    6.502 MB/s
-Average: 831476 messages/s, 7.930 MB/s
+$ kafka-benchmark --config producer_benchmark_config.yaml --scenario byte_bursts
+Scenario: byte_bursts, repeat 3 times, 20s pause after each
+* Produced 200000 messages (1.863 GB) in 2.800 seconds using 6 threads
+    71429 messages/s
+    681.196 MB/s
+* Produced 200000 messages (1.863 GB) in 2.529 seconds using 6 threads
+    79083 messages/s
+    754.191 MB/s
+* Produced 200000 messages (1.863 GB) in 2.514 seconds using 6 threads
+    79554 messages/s
+    758.691 MB/s
+Average: 76492 messages/s, 729.481 MB/s
 ```
 
-When producing to localhost, kafka-benchmark can send more than 900000 messages
+When producing to localhost, kafka-benchmark can send more than 3 million messages
 per second on commodity hardware.

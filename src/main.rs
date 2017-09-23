@@ -24,7 +24,7 @@ mod output;
 
 use config::{BenchmarkConfig, ProducerType, Scenario};
 use content::CachedMessages;
-use output::{BenchmarkStats, ScenarioStats};
+use output::{BenchmarkStats, ScenarioStats, ThreadStats};
 
 
 fn generate_producer_config(producer_config: &HashMap<String, String>) -> ClientConfig {
@@ -61,7 +61,18 @@ fn base_producer_benchmark(scenario_name: &str, scenario: &Scenario) {
 
     let mut benchmark_stats = BenchmarkStats::new(scenario);
     for i in 0..scenario.repeat_times {
-        let scenario_stats = base_producer_scenario(scenario, cache.clone());
+        let mut scenario_stats = ScenarioStats::new(scenario);
+        let threads = (0..scenario.threads).map(|thread_id| {
+            let scenario = scenario.clone();
+            let cache = cache.clone();
+            thread::spawn(move || {
+                base_producer_scenario(thread_id, &scenario, cache)
+            })
+        }).collect::<Vec<_>>();
+        for thread in threads {
+            let stats = thread.join();
+            scenario_stats.add_thread_stats(&stats.unwrap());
+        }
         scenario_stats.print();
         benchmark_stats.add_stat(scenario_stats);
         if i != scenario.repeat_times - 1 {
@@ -71,53 +82,44 @@ fn base_producer_benchmark(scenario_name: &str, scenario: &Scenario) {
     benchmark_stats.print();
 }
 
-fn base_producer_scenario(scenario: &Scenario, cache: Arc<CachedMessages>) -> ScenarioStats {
+fn base_producer_scenario(thread_id: usize, scenario: &Scenario, cache: Arc<CachedMessages>) -> ThreadStats {
     let client_config = generate_producer_config(&scenario.producer_config);
     let producer_context = BenchmarkProducerContext::new();
     let delivered_message_counter = producer_context.delivered_counter.clone();
     let base_producer: BaseProducer<BenchmarkProducerContext> = client_config.create_with_context(producer_context)
         .expect("Producer creation failed");
+//    let base_producer: BaseProducer<_> = client_config.create()
+//        .expect("Producer creation failed");
     let producer = Arc::new(base_producer);
     producer.send_copy::<str, str>(&scenario.topic, None, Some("warmup"), None, None, None)
         .expect("Producer error");
     delivered_message_counter.fetch_sub(1, Ordering::Relaxed);
-    producer.flush(120000);
+    producer.flush(10000);
 
     let start = Instant::now();
-    let threads = (0..scenario.threads).map(|i| {
-        let scenario = scenario.clone();
-        let producer = producer.clone();
-        let cache = cache.clone();
-        thread::spawn(move || {
-            let mut message_count = 0;
-            let per_thread_messages = if i == 0 {
-                scenario.message_count - scenario.message_count / scenario.threads * (scenario.threads - 1)
-            } else {
-                scenario.message_count / scenario.threads
-            };
-            for content in cache.into_iter().take(per_thread_messages) {
-                loop {
-                    match producer.send_copy::<[u8], [u8]>(&scenario.topic, Some(message_count % 3), Some(&content), None, None, None) {
-                        Err(KafkaError::MessageProduction(RDKafkaError::QueueFull)) => {
-                            producer.poll(10);
-                            continue;
-                        },
-                        Err(e) => { println!("Error {:?}", e); break },
-                        Ok(_) => break,
-                    }
-                }
-                message_count += 1;
-                producer.poll(0);
+    let mut message_count = 0;
+    let per_thread_messages = if thread_id == 0 {
+        scenario.message_count - scenario.message_count / scenario.threads * (scenario.threads - 1)
+    } else {
+        scenario.message_count / scenario.threads
+    };
+    for content in cache.into_iter().take(per_thread_messages) {
+        loop {
+            match producer.send_copy::<[u8], [u8]>(&scenario.topic, Some(message_count % 3), Some(&content), None, None, None) {
+                Err(KafkaError::MessageProduction(RDKafkaError::QueueFull)) => {
+                    producer.poll(10);
+                    continue;
+                },
+                Err(e) => { println!("Error {:?}", e); break },
+                Ok(_) => break,
             }
-            producer.flush(10000);
-        })
-    }).collect::<Vec<_>>();
-    for t in threads {
-        if let Err(e) = t.join() {
-            println!("Error in producer thread: {:?}", e);
         }
+        message_count += 1;
+        producer.poll(0);
     }
-    ScenarioStats::new(scenario, delivered_message_counter.load(Ordering::Relaxed), start.elapsed())
+    producer.flush(120000);
+    ThreadStats::new(delivered_message_counter.load(Ordering::Relaxed), start.elapsed())
+//    ThreadStats::new(per_thread_messages, start.elapsed())
 }
 
 fn future_producer_benchmark(_scenario: &Scenario) {
