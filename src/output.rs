@@ -34,43 +34,46 @@ impl ToHuman for Bytes {
 
 #[derive(Debug)]
 pub struct ThreadStats {
-    delivered_count: usize,
-    duration: Duration
+    duration: Duration,
+    failure_count: usize
 }
 
 impl ThreadStats {
-    pub fn new(delivered_count: usize, duration: Duration) -> ThreadStats {
-        ThreadStats { delivered_count, duration }
+    pub fn new(duration: Duration, failure_count: usize) -> ThreadStats {
+        ThreadStats { duration, failure_count }
     }
 }
 
 #[derive(Debug)]
 pub struct ScenarioStats<'a> {
     scenario: &'a Scenario,
-    delivered_count: usize,
+    failure_count: usize,
     duration: Duration
 }
 
 impl<'a> ScenarioStats<'a> {
     pub fn new(scenario: &'a Scenario) -> ScenarioStats<'a> {
-        ScenarioStats { scenario, delivered_count: 0, duration: Duration::from_secs(0) }
+        ScenarioStats {
+            scenario,
+            failure_count: 0,
+            duration: Duration::from_secs(0)
+        }
     }
 
     pub fn add_thread_stats(&mut self, thread_stats: &ThreadStats) {
-        self.delivered_count += thread_stats.delivered_count;
+        self.failure_count += thread_stats.failure_count;
         self.duration = cmp::max(self.duration, thread_stats.duration);
     }
 
     pub fn print(&self) {
         let elapsed_ms = duration_to_millis(self.duration) as f64;
-        let total_msg = self.delivered_count as f64;
+        let total_msg = self.scenario.message_count as f64;
         let total_bytes = total_msg * self.scenario.message_size as f64;
         let byte_rate_s = total_bytes / elapsed_ms * 1000f64;
         let msg_rate_s = total_msg / elapsed_ms * 1000f64;
 
-        if self.scenario.message_count != self.delivered_count {
-            println!("Not enough acknowledgements received. Expected {}, received {}",
-                     self.scenario.message_count, self.delivered_count);
+        if self.failure_count != 0 {
+            println!("Warning: {} messages failed to be delivered", self.failure_count);
         }
 
         println!(
@@ -102,12 +105,12 @@ impl<'a> BenchmarkStats<'a> {
 
     pub fn print(&self) {
         let duration = self.stats.iter().map(|stat| stat.duration).sum();
-        let delivered_count: f64 = self.stats.iter().map(|stat| stat.delivered_count as f64).sum();
+        let total_msg = (self.scenario.message_count * self.stats.len()) as f64;
 
         let elapsed_ms = duration_to_millis(duration) as f64;
-        let total_bytes = delivered_count * self.scenario.message_size as f64;
+        let total_bytes = total_msg * self.scenario.message_size as f64;
         let byte_rate_s = total_bytes / elapsed_ms * 1000f64;
-        let msg_rate_s = delivered_count / elapsed_ms * 1000f64;
+        let msg_rate_s = total_msg / elapsed_ms * 1000f64;
 
         println!("Average: {:.0} messages/s, {}/s", msg_rate_s, Bytes(byte_rate_s as usize).to_human());
     }

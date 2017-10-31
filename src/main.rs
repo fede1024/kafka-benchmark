@@ -33,12 +33,12 @@ fn generate_producer_config(producer_config: &HashMap<String, String>) -> Client
 }
 
 struct BenchmarkProducerContext {
-    delivered_counter: Arc<AtomicUsize>,
+    failure_counter: Arc<AtomicUsize>,
 }
 
 impl BenchmarkProducerContext {
     fn new() -> BenchmarkProducerContext {
-        BenchmarkProducerContext { delivered_counter: Arc::new(AtomicUsize::new(0)) }
+        BenchmarkProducerContext { failure_counter: Arc::new(AtomicUsize::new(0)) }
     }
 }
 
@@ -48,8 +48,8 @@ impl ProducerContext for BenchmarkProducerContext {
     type DeliveryContext = ();
 
     fn delivery(&self, r: DeliveryReport, _: Self::DeliveryContext) {
-        if r.success() {
-            self.delivered_counter.fetch_add(1, Ordering::Relaxed);
+        if !r.success() {
+            self.failure_counter.fetch_add(1, Ordering::Relaxed);
         }
     }
 }
@@ -85,15 +85,13 @@ fn base_producer_benchmark(scenario_name: &str, scenario: &Scenario) {
 fn base_producer_scenario(thread_id: usize, scenario: &Scenario, cache: Arc<CachedMessages>) -> ThreadStats {
     let client_config = generate_producer_config(&scenario.producer_config);
     let producer_context = BenchmarkProducerContext::new();
-    let delivered_message_counter = producer_context.delivered_counter.clone();
+    let failure_counter = producer_context.failure_counter.clone();
     let base_producer: BaseProducer<BenchmarkProducerContext> = client_config.create_with_context(producer_context)
         .expect("Producer creation failed");
-//    let base_producer: BaseProducer<_> = client_config.create()
-//        .expect("Producer creation failed");
     let producer = Arc::new(base_producer);
     producer.send_copy::<str, str>(&scenario.topic, None, Some("warmup"), None, None, None)
         .expect("Producer error");
-    delivered_message_counter.fetch_sub(1, Ordering::Relaxed);
+    failure_counter.store(0, Ordering::Relaxed);
     producer.flush(10000);
 
     let start = Instant::now();
@@ -118,8 +116,7 @@ fn base_producer_scenario(thread_id: usize, scenario: &Scenario, cache: Arc<Cach
         producer.poll(0);
     }
     producer.flush(120000);
-    ThreadStats::new(delivered_message_counter.load(Ordering::Relaxed), start.elapsed())
-//    ThreadStats::new(per_thread_messages, start.elapsed())
+    ThreadStats::new(start.elapsed(), failure_counter.load(Ordering::Relaxed))
 }
 
 fn future_producer_benchmark(_scenario: &Scenario) {

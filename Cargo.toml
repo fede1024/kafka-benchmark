@@ -13,7 +13,7 @@ clap = "^2.18.0"
 env_logger = "^0.3.0"
 log = "^0.3.0"
 rand = "^0.3.15"
-rdkafka = { git = "https://github.com/fede1024/rust-rdkafka.git"}
+rdkafka = "^0.13.0"
 serde = "^1.0.0"
 serde_derive = "^1.0.0"
 serde_yaml = "^0.7.1"
