@@ -1,5 +1,7 @@
 use serde_yaml;
 
+use rdkafka::ClientConfig;
+
 use std::collections::HashMap;
 use std::fs::File;
 
@@ -34,6 +36,13 @@ pub struct Scenario {
     pub message_count: usize,
     pub topic: String,
     pub producer_config: HashMap<String, String>
+}
+
+impl Scenario {
+    pub fn generate_producer_config(&self) -> ClientConfig {
+        self.producer_config.iter()
+            .fold(ClientConfig::new(), |mut config, (key, value)| {config.set(key, value); config})
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

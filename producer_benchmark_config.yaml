@@ -10,19 +10,32 @@ scenarios:
     producer_config:
       bootstrap.servers: localhost:9092
       queue.buffering.max.ms: 100
-  msg_bursts:
-    repeat_times: 3
+  msg_bursts_base:
+    repeat_times: 5
     repeat_pause: 10
     topic: test_topic
     message_size: 10
     message_count: 20000000
     threads: 6
+    producer: BaseProducer
+    producer_config:
+      bootstrap.servers: localhost:9092
+      queue.buffering.max.messages: 1000000
+      queue.buffering.max.ms: 100
+  msg_bursts_future:
+    repeat_times: 5
+    repeat_pause: 10
+    topic: test_topic
+    message_size: 10
+    message_count: 20000000
+    threads: 6
+    producer: FutureProducer
     producer_config:
       bootstrap.servers: localhost:9092
       queue.buffering.max.messages: 1000000
       queue.buffering.max.ms: 100
   byte_no_pause:
-    repeat_times: 5
+    repeat_times: 3
     topic: test_topic
     message_size: 10000
     message_count: 300000
