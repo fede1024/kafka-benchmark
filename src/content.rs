@@ -18,7 +18,7 @@ impl<'a> IntoIterator for &'a CachedMessages {
     fn into_iter(self) -> Self::IntoIter {
         CachedMessagesIterator {
             index: rand::thread_rng().gen_range(0, self.0.len()),
-            cache: &self
+            cache: self
         }
     }
 }
