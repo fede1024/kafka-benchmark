@@ -20,20 +20,26 @@ Core(TM) i7-4712HQ CPU @ 2.30GHz:
 → cargo install kafka-benchmark
 [...]
 
-$ kafka-benchmark --config producer_benchmark_config.yaml --scenario msg_bursts
-Scenario: msg_bursts, repeat 3 times, 10s pause after each
-* Produced 20000000 messages (190.735 MB) in 5.918 seconds using 6 threads
-    3379520 messages/s
-    32.230 MB/s
-* Produced 20000000 messages (190.735 MB) in 5.106 seconds using 6 threads
-    3916960 messages/s
-    37.355 MB/s
-* Produced 20000000 messages (190.735 MB) in 5.504 seconds using 6 threads
-    3633721 messages/s
-    34.654 MB/s
-Average: 3629984 messages/s, 34.618 MB/s
+→ kafka-benchmark --config producer_benchmark_config.yaml --scenario msg_bursts_base
+Scenario: msg_bursts_base, repeat 5 times, 10s pause after each
+* Produced 20000000 messages (190.735 MB) in 5.045 seconds using 6 threads
+    3964321 messages/s
+    37.807 MB/s
+* Produced 20000000 messages (190.735 MB) in 5.125 seconds using 6 threads
+    3902439 messages/s
+    37.217 MB/s
+* Produced 20000000 messages (190.735 MB) in 5.032 seconds using 6 threads
+    3974563 messages/s
+    37.904 MB/s
+* Produced 20000000 messages (190.735 MB) in 4.980 seconds using 6 threads
+    4016064 messages/s
+    38.300 MB/s
+* Produced 20000000 messages (190.735 MB) in 5.036 seconds using 6 threads
+    3971406 messages/s
+    37.874 MB/s
+Average: 3964950 messages/s, 37.813 MB/s
 
-$ kafka-benchmark --config producer_benchmark_config.yaml --scenario byte_bursts
+→ kafka-benchmark --config producer_benchmark_config.yaml --scenario byte_bursts
 Scenario: byte_bursts, repeat 3 times, 20s pause after each
 * Produced 200000 messages (1.863 GB) in 2.800 seconds using 6 threads
     71429 messages/s
@@ -47,5 +53,5 @@ Scenario: byte_bursts, repeat 3 times, 20s pause after each
 Average: 76492 messages/s, 729.481 MB/s
 ```
 
-When producing to localhost, kafka-benchmark can send more than 3 million messages
+When producing to localhost, kafka-benchmark can send almost 4 million messages
 per second on commodity hardware.
