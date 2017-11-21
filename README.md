@@ -20,6 +20,8 @@ Core(TM) i7-4712HQ CPU @ 2.30GHz:
 → git clone https://github.com/fede1024/kafka-benchmark.git
 [...]
 
+→ cd kafka-benchmark/
+
 → cargo install
 [...]
 
