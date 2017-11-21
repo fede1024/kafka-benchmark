@@ -17,7 +17,10 @@ This is an example run while producing messages to localhost, on an Intel(R)
 Core(TM) i7-4712HQ CPU @ 2.30GHz:
 
 ```
-→ cargo install kafka-benchmark
+→ git clone https://github.com/fede1024/kafka-benchmark.git
+[...]
+
+→ cargo install
 [...]
 
 → kafka-benchmark --config producer_benchmark_config.yaml --scenario msg_bursts_base
