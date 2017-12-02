@@ -41,9 +41,9 @@ impl BenchmarkProducerContext {
 impl Context for BenchmarkProducerContext {}
 
 impl ProducerContext for BenchmarkProducerContext {
-    type DeliveryContext = ();
+    type DeliveryOpaque = ();
 
-    fn delivery(&self, r: &DeliveryResult, _: Self::DeliveryContext) {
+    fn delivery(&self, r: &DeliveryResult, _: Self::DeliveryOpaque) {
         if r.is_err() {
             self.failure_counter.fetch_add(1, Ordering::Relaxed);
         }
@@ -56,7 +56,7 @@ fn base_producer_thread(thread_id: usize, scenario: &Scenario, cache: &CachedMes
     let failure_counter = Arc::clone(&producer_context.failure_counter);
     let producer: BaseProducer<BenchmarkProducerContext> = client_config.create_with_context(producer_context)
         .expect("Producer creation failed");
-    producer.send_copy::<str, str>(&scenario.topic, None, Some("warmup"), None, None, None)
+    producer.send_copy::<str, str>(&scenario.topic, None, Some("warmup"), None, (), None)
         .expect("Producer error");
     failure_counter.store(0, Ordering::Relaxed);
     producer.flush(10_000);
@@ -69,7 +69,7 @@ fn base_producer_thread(thread_id: usize, scenario: &Scenario, cache: &CachedMes
     let start = Instant::now();
     for (count, content) in cache.into_iter().take(per_thread_messages).enumerate() {
         loop {
-            match producer.send_copy::<[u8], [u8]>(&scenario.topic, Some(count as i32 % 3), Some(content), None, None, None) {
+            match producer.send_copy::<[u8], [u8]>(&scenario.topic, Some(count as i32 % 3), Some(content), None, (), None) {
                 Err(KafkaError::MessageProduction(RDKafkaError::QueueFull)) => {
                     producer.poll(10);
                     continue;

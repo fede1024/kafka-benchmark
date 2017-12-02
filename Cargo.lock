@@ -97,7 +97,7 @@ dependencies = [
  "futures 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
- "rdkafka 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rdkafka 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_yaml 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -222,7 +222,7 @@ dependencies = [
 
 [[package]]
 name = "rdkafka"
-version = "0.13.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "futures 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -441,7 +441,7 @@ dependencies = [
 "checksum pkg-config 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)" = "3a8b4c6b8165cd1a1cd4b9b120978131389f64bdaf456435caa41e630edba903"
 "checksum quote 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)" = "7a6e920b65c65f10b2ae65c831a81a073a89edd28c7cce89475bff467ab4167a"
 "checksum rand 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)" = "eb250fd207a4729c976794d03db689c9be1d634ab5a1c9da9492a13d8fecbcdf"
-"checksum rdkafka 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)" = "eb76b3874c008336ce8e1b539708a5ffe4b30a17d8a0c44fe6ef5be1a361ea5c"
+"checksum rdkafka 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c811fdc65d1a2c68f517e0c42c64041041a82c387795844db7b6b34b0661a42c"
 "checksum rdkafka-sys 0.11.1-0 (registry+https://github.com/rust-lang/crates.io-index)" = "4283cae71681ba794e227c864cc93b7f5d806f52ada744250910ff75fc5a6313"
 "checksum regex 0.1.80 (registry+https://github.com/rust-lang/crates.io-index)" = "4fd4ace6a8cf7860714a2c2280d6c1f7e6a413486c13298bbc86fd3da019402f"
 "checksum regex-syntax 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)" = "f9ec002c35e86791825ed294b50008eea9ddfc8def4420124fbc6b08db834957"
