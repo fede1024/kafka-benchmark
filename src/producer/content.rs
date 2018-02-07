@@ -4,21 +4,27 @@ pub struct CachedMessages(Vec<Vec<u8>>);
 
 impl CachedMessages {
     pub fn new(msg_size: usize, cache_size: usize) -> CachedMessages {
-        let messages = (0..(cache_size / msg_size)).map(|_|
-            rand::thread_rng().gen_iter::<u8>().map(|v| v % 86 + 40).take(msg_size).collect::<Vec<u8>>()
-        ).collect::<Vec<_>>();
+        let messages = (0..(cache_size / msg_size))
+            .map(|_| {
+                rand::thread_rng()
+                    .gen_iter::<u8>()
+                    .map(|v| v % 86 + 40)
+                    .take(msg_size)
+                    .collect::<Vec<u8>>()
+            })
+            .collect::<Vec<_>>();
         CachedMessages(messages)
     }
 }
 
 impl<'a> IntoIterator for &'a CachedMessages {
-    type Item = &'a[u8];
+    type Item = &'a [u8];
     type IntoIter = CachedMessagesIterator<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
         CachedMessagesIterator {
             index: rand::thread_rng().gen_range(0, self.0.len()),
-            cache: self
+            cache: self,
         }
     }
 }
@@ -29,13 +35,13 @@ pub struct CachedMessagesIterator<'a> {
 }
 
 impl<'a> Iterator for CachedMessagesIterator<'a> {
-    type Item = &'a[u8];
+    type Item = &'a [u8];
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index == self.cache.0.len() {
             self.index = 0;
         }
         self.index += 1;
-        Some(self.cache.0[self.index-1].as_slice())
+        Some(self.cache.0[self.index - 1].as_slice())
     }
 }

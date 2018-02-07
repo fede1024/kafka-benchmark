@@ -1,15 +1,15 @@
-#[macro_use] extern crate clap;
-#[macro_use] extern crate serde_derive;
-extern crate rand;
-extern crate serde;
-extern crate serde_yaml;
-extern crate rdkafka;
+#[macro_use]
+extern crate clap;
 extern crate env_logger;
 extern crate futures;
-
+extern crate rand;
+extern crate rdkafka;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_yaml;
 
 mod producer;
-
 
 fn main() {
     let matches = clap_app!(app =>
@@ -27,6 +27,6 @@ fn main() {
     match matches.value_of("benchmark_type").unwrap() {
         "consumer" => println!("Not yet implemented"),
         "producer" => producer::run(config_file, scenario_name),
-        _ => println!("Undefined benchmark type. Please use 'producer' or 'consumer'")
+        _ => println!("Undefined benchmark type. Please use 'producer' or 'consumer'"),
     }
 }

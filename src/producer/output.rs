@@ -5,7 +5,6 @@ use producer::config::Scenario;
 use std::time::Duration;
 use std::cmp;
 
-
 struct Bytes(usize);
 
 trait ToHuman {
@@ -35,12 +34,15 @@ impl ToHuman for Bytes {
 #[derive(Debug)]
 pub struct ThreadStats {
     duration: Duration,
-    failure_count: usize
+    failure_count: usize,
 }
 
 impl ThreadStats {
     pub fn new(duration: Duration, failure_count: usize) -> ThreadStats {
-        ThreadStats { duration, failure_count }
+        ThreadStats {
+            duration,
+            failure_count,
+        }
     }
 }
 
@@ -48,7 +50,7 @@ impl ThreadStats {
 pub struct ScenarioStats<'a> {
     scenario: &'a Scenario,
     failure_count: usize,
-    duration: Duration
+    duration: Duration,
 }
 
 impl<'a> ScenarioStats<'a> {
@@ -56,7 +58,7 @@ impl<'a> ScenarioStats<'a> {
         ScenarioStats {
             scenario,
             failure_count: 0,
-            duration: Duration::from_secs(0)
+            duration: Duration::from_secs(0),
         }
     }
 
@@ -73,7 +75,10 @@ impl<'a> ScenarioStats<'a> {
         let msg_rate_s = total_msg / elapsed_ms * 1000f64;
 
         if self.failure_count != 0 {
-            println!("Warning: {} messages failed to be delivered", self.failure_count);
+            println!(
+                "Warning: {} messages failed to be delivered",
+                self.failure_count
+            );
         }
 
         println!(
@@ -91,12 +96,15 @@ impl<'a> ScenarioStats<'a> {
 
 pub struct BenchmarkStats<'a> {
     scenario: &'a Scenario,
-    stats: Vec<ScenarioStats<'a>>
+    stats: Vec<ScenarioStats<'a>>,
 }
 
 impl<'a> BenchmarkStats<'a> {
     pub fn new(scenario: &'a Scenario) -> BenchmarkStats<'a> {
-        BenchmarkStats { scenario, stats: Vec::new() }
+        BenchmarkStats {
+            scenario,
+            stats: Vec::new(),
+        }
     }
 
     pub fn add_stat(&mut self, scenario_stat: ScenarioStats<'a>) {
@@ -112,6 +120,10 @@ impl<'a> BenchmarkStats<'a> {
         let byte_rate_s = total_bytes / elapsed_ms * 1000f64;
         let msg_rate_s = total_msg / elapsed_ms * 1000f64;
 
-        println!("Average: {:.0} messages/s, {}/s", msg_rate_s, Bytes(byte_rate_s as usize).to_human());
+        println!(
+            "Average: {:.0} messages/s, {}/s",
+            msg_rate_s,
+            Bytes(byte_rate_s as usize).to_human()
+        );
     }
 }
