@@ -1,6 +1,6 @@
 use rdkafka::util::duration_to_millis;
 
-use config::Scenario;
+use producer::config::Scenario;
 
 use std::time::Duration;
 use std::cmp;
@@ -96,7 +96,7 @@ pub struct BenchmarkStats<'a> {
 
 impl<'a> BenchmarkStats<'a> {
     pub fn new(scenario: &'a Scenario) -> BenchmarkStats<'a> {
-        BenchmarkStats { scenario: scenario, stats: Vec::new() }
+        BenchmarkStats { scenario, stats: Vec::new() }
     }
 
     pub fn add_stat(&mut self, scenario_stat: ScenarioStats<'a>) {
