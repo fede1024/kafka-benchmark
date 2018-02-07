@@ -169,7 +169,7 @@ fn main() {
         (@arg scenario: --scenario +takes_value +required "The scenario you want to execute")
     ).get_matches();
 
-    env_logger::init().expect("Failed to initialize logging");
+    env_logger::init();
 
     let config = BenchmarkConfig::from_file(matches.value_of("config").unwrap());
     let scenario_name = matches.value_of("scenario").unwrap();
