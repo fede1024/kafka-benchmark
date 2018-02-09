@@ -10,13 +10,12 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::iter::{IntoIterator, Iterator};
 
-mod config;
 mod content;
 mod output;
 
-use self::config::{ProducerBenchmarkConfig, ProducerType, Scenario};
+use super::config::{ProducerBenchmarkConfig, ProducerType, ProducerScenario};
 use self::content::CachedMessages;
-use self::output::{BenchmarkStats, ScenarioStats, ThreadStats};
+use self::output::{ProducerBenchmarkStats, ProducerScenarioStats, ThreadStats};
 
 struct BenchmarkProducerContext {
     failure_counter: Arc<AtomicUsize>,
@@ -44,7 +43,7 @@ impl ProducerContext for BenchmarkProducerContext {
 
 fn base_producer_thread(
     thread_id: usize,
-    scenario: &Scenario,
+    scenario: &ProducerScenario,
     cache: &CachedMessages,
 ) -> ThreadStats {
     let client_config = scenario.generate_producer_config();
@@ -112,7 +111,7 @@ fn wait_all(futures: Vec<DeliveryFuture>) -> usize {
 
 fn future_producer_thread(
     thread_id: usize,
-    scenario: &Scenario,
+    scenario: &ProducerScenario,
     cache: &CachedMessages,
 ) -> ThreadStats {
     let client_config = scenario.generate_producer_config();
@@ -148,16 +147,16 @@ fn future_producer_thread(
     ThreadStats::new(start.elapsed(), failures)
 }
 
-fn run_benchmark(scenario_name: &str, scenario: &Scenario) {
+fn run_benchmark(scenario_name: &str, scenario: &ProducerScenario) {
     let cache = Arc::new(CachedMessages::new(scenario.message_size, 1_000_000));
     println!(
         "Scenario: {}, repeat {} times, {}s pause after each",
         scenario_name, scenario.repeat_times, scenario.repeat_pause
     );
 
-    let mut benchmark_stats = BenchmarkStats::new(scenario);
+    let mut benchmark_stats = ProducerBenchmarkStats::new(scenario);
     for i in 0..scenario.repeat_times {
-        let mut scenario_stats = ScenarioStats::new(scenario);
+        let mut scenario_stats = ProducerScenarioStats::new(scenario);
         let threads = (0..scenario.threads)
             .map(|thread_id| {
                 let scenario = scenario.clone();
@@ -185,9 +184,7 @@ fn run_benchmark(scenario_name: &str, scenario: &Scenario) {
     benchmark_stats.print();
 }
 
-pub fn run(config_file: &str, scenario_name: &str) {
-    println!("{} {}", config_file, scenario_name);
-    let config = ProducerBenchmarkConfig::from_file(config_file);
+pub fn run(config: &ProducerBenchmarkConfig, scenario_name: &str) {
     let scenario = config
         .scenarios
         .get(scenario_name)

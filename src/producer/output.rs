@@ -1,6 +1,6 @@
 use rdkafka::util::duration_to_millis;
 
-use producer::config::Scenario;
+use config::ProducerScenario;
 
 use std::time::Duration;
 use std::cmp;
@@ -47,15 +47,15 @@ impl ThreadStats {
 }
 
 #[derive(Debug)]
-pub struct ScenarioStats<'a> {
-    scenario: &'a Scenario,
+pub struct ProducerScenarioStats<'a> {
+    scenario: &'a ProducerScenario,
     failure_count: usize,
     duration: Duration,
 }
 
-impl<'a> ScenarioStats<'a> {
-    pub fn new(scenario: &'a Scenario) -> ScenarioStats<'a> {
-        ScenarioStats {
+impl<'a> ProducerScenarioStats<'a> {
+    pub fn new(scenario: &'a ProducerScenario) -> ProducerScenarioStats<'a> {
+        ProducerScenarioStats {
             scenario,
             failure_count: 0,
             duration: Duration::from_secs(0),
@@ -94,20 +94,20 @@ impl<'a> ScenarioStats<'a> {
     }
 }
 
-pub struct BenchmarkStats<'a> {
-    scenario: &'a Scenario,
-    stats: Vec<ScenarioStats<'a>>,
+pub struct ProducerBenchmarkStats<'a> {
+    scenario: &'a ProducerScenario,
+    stats: Vec<ProducerScenarioStats<'a>>,
 }
 
-impl<'a> BenchmarkStats<'a> {
-    pub fn new(scenario: &'a Scenario) -> BenchmarkStats<'a> {
-        BenchmarkStats {
+impl<'a> ProducerBenchmarkStats<'a> {
+    pub fn new(scenario: &'a ProducerScenario) -> ProducerBenchmarkStats<'a> {
+        ProducerBenchmarkStats {
             scenario,
             stats: Vec::new(),
         }
     }
 
-    pub fn add_stat(&mut self, scenario_stat: ScenarioStats<'a>) {
+    pub fn add_stat(&mut self, scenario_stat: ProducerScenarioStats<'a>) {
         self.stats.push(scenario_stat)
     }
 
