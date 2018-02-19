@@ -1,13 +1,36 @@
 use super::config::{ConsumerBenchmark, ConsumerScenario, ConsumerType};
 use super::units::{Bytes, Messages, Seconds};
 
-use rdkafka::consumer::{BaseConsumer, Consumer, ConsumerContext};
+use futures::Stream;
+use rdkafka::config::FromClientConfig;
+use rdkafka::consumer::{BaseConsumer, Consumer, ConsumerContext, StreamConsumer};
 use rdkafka::error::KafkaError;
 
 use std::collections::HashSet;
+use std::time::{Duration, Instant};
 use std::u64;
-use std::time::Instant;
 
+
+struct ConsumerBenchmarkStats {
+    messages: Messages,
+    bytes: Bytes,
+    time: Seconds,
+}
+
+impl ConsumerBenchmarkStats {
+    fn new(messages: u64, bytes: u64, time: Duration) -> ConsumerBenchmarkStats {
+        ConsumerBenchmarkStats {
+            messages: Messages::from(messages),
+            bytes: Bytes::from(bytes),
+            time: Seconds(time),
+        }
+    }
+
+    fn print(&self) {
+        println!("Received: {}, {}", self.messages, self.bytes);
+        println!("Elapsed:  {} ({}, {})", self.time, self.messages / self.time, self.bytes / self.time)
+    }
+}
 
 fn get_topic_partitions_count<X: ConsumerContext, C: Consumer<X>>(consumer: &C, topic_name: &str) -> Option<usize> {
     let metadata = consumer.fetch_metadata(Some(topic_name), 30000)
@@ -25,30 +48,38 @@ fn get_topic_partitions_count<X: ConsumerContext, C: Consumer<X>>(consumer: &C, 
     }
 }
 
-fn run_base_consumer_benchmark(benchmark: &ConsumerBenchmark, scenario: &ConsumerScenario) {
-    let mut client_config = benchmark.generate_consumer_config(scenario);
-    let mut partition_eof = HashSet::new();
-    let consumer = client_config
+fn initialize_consumer<T: FromClientConfig + Consumer>(scenario: &ConsumerScenario) -> T {
+    let consumer: T = scenario.client_config()
         .set("enable.partition.eof", "true")
-        .create::<BaseConsumer<_>>()
+        .create()
         .expect("Consumer creation failed");
+    consumer.subscribe(&[&scenario.topic])
+        .expect("Can't subscribe to specified topics");
+    consumer
+}
 
+
+fn run_base_consumer_benchmark(scenario: &ConsumerScenario) -> ConsumerBenchmarkStats {
+    let consumer: BaseConsumer = initialize_consumer(scenario);
+    let mut partition_eof = HashSet::new();
     let partition_count = get_topic_partitions_count(&consumer, &scenario.topic)
         .expect("Topic not found");
 
-    consumer.subscribe(&[&scenario.topic])
-        .expect("Can't subscribe to specified topics");
+    let limit = if scenario.message_limit < 0 {
+        u64::MAX
+    } else {
+        scenario.message_limit as u64
+    };
 
-    let limit = Messages::from(scenario.limit.unwrap_or(u64::MAX));
     let mut start_time = Instant::now();
-    let mut messages = Messages::zero();
-    let mut bytes = Bytes::zero();
+    let mut messages = 0;
+    let mut bytes = 0;
 
     while messages < limit {
         match consumer.poll(1000) {
             None => {},
             Some(Ok(message)) => {
-                if messages.is_zero() {
+                if messages == 0 {
                     println!("First message received");
                     start_time = Instant::now();
                 }
@@ -67,14 +98,54 @@ fn run_base_consumer_benchmark(benchmark: &ConsumerBenchmark, scenario: &Consume
         }
     }
 
-    let time = Seconds(start_time.elapsed());
-
-    println!("Received: {}, {}", messages, bytes);
-    println!("Elapsed:  {} ({}, {})", time, messages / time, bytes / time)
+    ConsumerBenchmarkStats::new(messages, bytes as u64, start_time.elapsed())
 }
 
-fn run_stream_consumer_benchmark(_config: &ConsumerBenchmark, _scenario: &ConsumerScenario) {
-    unimplemented!();
+fn run_stream_consumer_benchmark(scenario: &ConsumerScenario) -> ConsumerBenchmarkStats {
+    let consumer: StreamConsumer = initialize_consumer(scenario);
+    let mut partition_eof = HashSet::new();
+    let partition_count = get_topic_partitions_count(&consumer, &scenario.topic)
+        .expect("Topic not found");
+
+    let limit = if scenario.message_limit < 0 {
+        u64::MAX
+    } else {
+        scenario.message_limit as u64
+    };
+
+    let mut start_time = Instant::now();
+    let mut messages = 0;
+    let mut bytes = 0;
+
+    for message in consumer.start().wait() {
+        match message {
+            Err(e) => {
+                println!("Error while reading from stream: {:?}", e);
+            },
+            Ok(Ok(message)) => {
+                if messages == 0 {
+                    println!("First message received");
+                    start_time = Instant::now();
+                }
+                if messages >= limit {
+                    break;
+                }
+                messages += 1;
+                bytes += message.payload_len() + message.key_len();
+            },
+            Ok(Err(KafkaError::PartitionEOF(p))) => {
+                partition_eof.insert(p);
+                if partition_eof.len() >= partition_count {
+                    break;
+                }
+            },
+            Ok(Err(e)) => {
+                println!("Kafka error: {}", e);
+            },
+        };
+    }
+
+    ConsumerBenchmarkStats::new(messages, bytes as u64, start_time.elapsed())
 }
 
 pub fn run(config: &ConsumerBenchmark, scenario_name: &str) {
@@ -83,8 +154,10 @@ pub fn run(config: &ConsumerBenchmark, scenario_name: &str) {
         .get(scenario_name)
         .expect("The specified scenario cannot be found");
 
-    match scenario.consumer {
-        ConsumerType::BaseConsumer => run_base_consumer_benchmark(config, scenario),
-        ConsumerType::StreamConsumer => run_stream_consumer_benchmark(config, scenario),
-    }
+    let stats = match scenario.consumer_type {
+        ConsumerType::BaseConsumer => run_base_consumer_benchmark(scenario),
+        ConsumerType::StreamConsumer => run_stream_consumer_benchmark(scenario),
+    };
+
+    stats.print();
 }

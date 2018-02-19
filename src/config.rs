@@ -6,6 +6,7 @@ use rdkafka::ClientConfig;
 use std::collections::HashMap;
 use std::fs::File;
 
+
 pub fn from_yaml<T>(path: &str) -> T
 where T: for<'de> serde::Deserialize<'de> {
     let input_file = File::open(path).expect("Failed to open configuration file");
@@ -75,36 +76,28 @@ impl Default for ProducerType {
 // ********** CONSUMER CONFIG **********
 //
 
-// TODO: separate the structure matching the file configuration and
-// the structure used internally. Or alternatively implement deserialization directly,
-// without serde.
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConsumerScenario {
-    #[serde(default = "one")]
-    pub repeat_times: u64,
-    #[serde(default = "zero")]
-    pub repeat_pause: u64,
-    #[serde(default)]
-    pub consumer: ConsumerType,
-    pub limit: Option<u64>,
-    pub topic: String,
-    #[serde(default)]
-    pub consumer_config: HashMap<String, String>,
+#[derive(Debug, Serialize, Deserialize)]
+struct ConsumerBenchmarkFileConfig {
+    default: ConsumerScenarioFileConfig,
+    scenarios: HashMap<String, ConsumerScenarioFileConfig>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Range {
-    /// Consume the whole topic
-    All,
-    /// Consume from the beginning, up to the specified number of messages.
-    FirstNMessages(u64),
-}
-
-impl Default for Range {
-    fn default() -> Self {
-        Range::All
+impl ConsumerBenchmarkFileConfig {
+    fn from_file(path: &str) -> ConsumerBenchmarkFileConfig {
+        let input_file = File::open(path).expect("Failed to open configuration file");
+        serde_yaml::from_reader(input_file).expect("Failed to parse configuration file")
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ConsumerScenarioFileConfig {
+    repeat_times: Option<u64>,
+    repeat_pause: Option<u64>,
+    consumer_type: Option<ConsumerType>,
+    message_limit: Option<i64>,
+    topic: Option<String>,
+    consumer_config: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -119,19 +112,75 @@ impl Default for ConsumerType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConsumerScenario {
+    pub repeat_times: u64,
+    pub repeat_pause: u64,
+    pub consumer_type: ConsumerType,
+    pub message_limit: i64,
+    pub topic: String,
+    pub consumer_config: HashMap<String, String>,
+}
+
+fn or_expect<T: Clone>(first: &Option<T>, second: &Option<T>, name: &str) -> T {
+    first.as_ref()
+        .map(|config| config.clone())
+        .or(second.clone())
+        .expect(&format!("Missing configuration parameter: {}", name))
+}
+
+impl ConsumerScenario {
+    fn from_file_config(default: &ConsumerScenarioFileConfig, scenario: &ConsumerScenarioFileConfig) -> ConsumerScenario {
+        let mut consumer_config = default.consumer_config.clone().unwrap_or_default();
+        if let Some(ref config) = scenario.consumer_config {
+            for (key, value) in config {
+                consumer_config.insert(key.clone(), value.clone());
+            }
+        }
+        if consumer_config.is_empty() {
+            panic!("No consumer configuration provided")
+        }
+        ConsumerScenario {
+            repeat_times: or_expect(&scenario.repeat_times, &default.repeat_times, "repeat_times"),
+            repeat_pause: or_expect(&scenario.repeat_pause, &default.repeat_pause, "repeat_pause"),
+            consumer_type: or_expect(&scenario.consumer_type, &default.consumer_type, "consumer"),
+            message_limit: or_expect(&scenario.message_limit, &default.message_limit, "message_limit"),
+            topic: or_expect(&scenario.topic, &default.topic, "topic"),
+            consumer_config,
+        }
+    }
+
+    pub fn client_config(&self) -> ClientConfig {
+        map_to_client_config(&self.consumer_config)
+    }
+}
+
 pub struct ConsumerBenchmark {
-    pub default_consumer_config: HashMap<String, String>,
     pub scenarios: HashMap<String, ConsumerScenario>,
 }
 
-// This api should be improved.
 impl ConsumerBenchmark {
-    pub fn generate_consumer_config(&self, scenario: &ConsumerScenario) -> ClientConfig {
-        let mut merged_config = self.default_consumer_config.clone();
-        for (key, value) in scenario.consumer_config.iter() {
-            merged_config.insert(key.clone(), value.clone());
+    pub fn from_file(path: &str) -> ConsumerBenchmark {
+        let raw_config = ConsumerBenchmarkFileConfig::from_file(path);
+        let mut scenarios = HashMap::new();
+
+        for (name, scenario) in raw_config.scenarios {
+            scenarios.insert(name.clone(), ConsumerScenario::from_file_config(&raw_config.default, &scenario));
         }
-        map_to_client_config(&merged_config)
+
+        ConsumerBenchmark {
+            scenarios
+        }
     }
 }
+
+// This api should be improved.
+//impl ConsumerBenchmark {
+//    pub fn generate_consumer_config(&self, scenario: &ConsumerScenario) -> ClientConfig {
+//        let mut merged_config = self.default_consumer_config.clone();
+//        for (key, value) in scenario.consumer_config.iter() {
+//            merged_config.insert(key.clone(), value.clone());
+//        }
+//        map_to_client_config(&merged_config)
+//    }
+//}

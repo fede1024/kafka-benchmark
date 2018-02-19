@@ -14,7 +14,7 @@ mod consumer;
 mod producer;
 mod units;
 
-use config::from_yaml;
+use config::{ConsumerBenchmark, from_yaml};
 
 fn main() {
     let matches = clap_app!(app =>
@@ -30,7 +30,7 @@ fn main() {
     let scenario_name = matches.value_of("scenario").unwrap();
 
     match matches.value_of("benchmark_type").unwrap() {
-        "consumer" => consumer::run(&from_yaml(config_file), scenario_name),
+        "consumer" => consumer::run(&ConsumerBenchmark::from_file(config_file), scenario_name),
         "producer" => producer::run(&from_yaml(config_file), scenario_name),
         _ => println!("Undefined benchmark type. Please use 'producer' or 'consumer'"),
     }

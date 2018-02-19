@@ -1,13 +1,24 @@
 ---
-default_consumer_config:
-  bootstrap.servers: localhost:9092
-  group.id: 'benchmark_consumer_group2'
-  auto.offset.reset: smallest
-  enable.auto.commit: false
-  session.timeout.ms: 6000
+default:
+  repeat_times: 1
+  repeat_pause: 0
+  consumer_type: BaseConsumer
+  topic: test_topic1
+  consumer_config:
+    bootstrap.servers: localhost:9092
+    group.id: 'benchmark_consumer_group'
+    auto.offset.reset: smallest
+    enable.auto.commit: false
+    session.timeout.ms: 6000
 
 scenarios:
-
   full_topic:
-    limit: 2000000
-    topic: test_topic1
+    message_limit: -1
+
+  one_million_base:
+    consumer_type: BaseConsumer
+    message_limit: 1000000
+
+  one_million_future:
+    consumer_type: StreamConsumer
+    message_limit: 1000000

@@ -178,7 +178,7 @@ pub fn run(config: &ProducerBenchmarkConfig, scenario_name: &str) {
             .collect::<Vec<_>>();
         for thread in threads {
             let stats = thread.join();
-            scenario_stats.add_thread_stats(&stats.unwrap());
+            scenario_stats.merge_thread_stats(&stats.unwrap());
         }
         scenario_stats.print();
         benchmark_stats.add_stat(scenario_stats);
@@ -221,7 +221,7 @@ impl<'a> ProducerRunStats<'a> {
         }
     }
 
-    pub fn add_thread_stats(&mut self, thread_stats: &ThreadStats) {
+    pub fn merge_thread_stats(&mut self, thread_stats: &ThreadStats) {
         self.failure_count += thread_stats.failure_count;
         self.duration = cmp::max(self.duration, thread_stats.duration);
     }

@@ -7,6 +7,7 @@ use std::time::Duration;
 //
 // ********** SECONDS **********
 //
+
 #[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Seconds(pub Duration);
 
