@@ -1,0 +1,13 @@
+---
+default_consumer_config:
+  bootstrap.servers: localhost:9092
+  group.id: 'benchmark_consumer_group2'
+  auto.offset.reset: smallest
+  enable.auto.commit: false
+  session.timeout.ms: 6000
+
+scenarios:
+
+  full_topic:
+    limit: 2000000
+    topic: test_topic1

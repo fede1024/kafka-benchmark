@@ -1,21 +1,21 @@
 use futures::{self, Future};
+use rdkafka::ClientContext;
 use rdkafka::error::{KafkaError, RDKafkaError};
-use rdkafka::Context;
-use rdkafka::producer::{BaseProducer, DeliveryResult, FutureProducer, ProducerContext};
 use rdkafka::producer::future_producer::DeliveryFuture;
+use rdkafka::producer::{BaseProducer, DeliveryResult, FutureProducer, ProducerContext};
 
-use std::time::{Duration, Instant};
-use std::thread;
+use std::cmp;
+use std::iter::{IntoIterator, Iterator};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::iter::{IntoIterator, Iterator};
+use std::thread;
+use std::time::{Duration, Instant};
 
 mod content;
-mod output;
 
-use super::config::{ProducerBenchmarkConfig, ProducerType, ProducerScenario};
 use self::content::CachedMessages;
-use self::output::{ProducerBenchmarkStats, ProducerScenarioStats, ThreadStats};
+use super::config::{ProducerBenchmarkConfig, ProducerType, ProducerScenario};
+use super::units::{Bytes, Messages, Seconds};
 
 struct BenchmarkProducerContext {
     failure_counter: Arc<AtomicUsize>,
@@ -29,7 +29,7 @@ impl BenchmarkProducerContext {
     }
 }
 
-impl Context for BenchmarkProducerContext {}
+impl ClientContext for BenchmarkProducerContext {}
 
 impl ProducerContext for BenchmarkProducerContext {
     type DeliveryOpaque = ();
@@ -42,7 +42,7 @@ impl ProducerContext for BenchmarkProducerContext {
 }
 
 fn base_producer_thread(
-    thread_id: usize,
+    thread_id: u64,
     scenario: &ProducerScenario,
     cache: &CachedMessages,
 ) -> ThreadStats {
@@ -64,7 +64,7 @@ fn base_producer_thread(
         scenario.message_count / scenario.threads
     };
     let start = Instant::now();
-    for (count, content) in cache.into_iter().take(per_thread_messages).enumerate() {
+    for (count, content) in cache.into_iter().take(per_thread_messages as usize).enumerate() {
         loop {
             match producer.send_copy::<[u8], [u8]>(
                 &scenario.topic,
@@ -110,7 +110,7 @@ fn wait_all(futures: Vec<DeliveryFuture>) -> usize {
 }
 
 fn future_producer_thread(
-    thread_id: usize,
+    thread_id: u64,
     scenario: &ProducerScenario,
     cache: &CachedMessages,
 ) -> ThreadStats {
@@ -128,7 +128,7 @@ fn future_producer_thread(
     let start = Instant::now();
     let mut failures = 0;
     let mut futures = Vec::with_capacity(1_000_000);
-    for (count, content) in cache.into_iter().take(per_thread_messages).enumerate() {
+    for (count, content) in cache.into_iter().take(per_thread_messages as usize).enumerate() {
         futures.push(producer.send_copy::<[u8], [u8]>(
             &scenario.topic,
             Some(count as i32 % 3),
@@ -147,16 +147,21 @@ fn future_producer_thread(
     ThreadStats::new(start.elapsed(), failures)
 }
 
-fn run_benchmark(scenario_name: &str, scenario: &ProducerScenario) {
+pub fn run(config: &ProducerBenchmarkConfig, scenario_name: &str) {
+    let scenario = config
+        .scenarios
+        .get(scenario_name)
+        .expect("The specified scenario cannot be found");
+
     let cache = Arc::new(CachedMessages::new(scenario.message_size, 1_000_000));
     println!(
-        "Scenario: {}, repeat {} times, {}s pause after each",
+        "Scenario: {}, repeat {} times, {} seconds pause after each",
         scenario_name, scenario.repeat_times, scenario.repeat_pause
     );
 
     let mut benchmark_stats = ProducerBenchmarkStats::new(scenario);
     for i in 0..scenario.repeat_times {
-        let mut scenario_stats = ProducerScenarioStats::new(scenario);
+        let mut scenario_stats = ProducerRunStats::new(scenario);
         let threads = (0..scenario.threads)
             .map(|thread_id| {
                 let scenario = scenario.clone();
@@ -184,11 +189,90 @@ fn run_benchmark(scenario_name: &str, scenario: &ProducerScenario) {
     benchmark_stats.print();
 }
 
-pub fn run(config: &ProducerBenchmarkConfig, scenario_name: &str) {
-    let scenario = config
-        .scenarios
-        .get(scenario_name)
-        .expect("The specified scenario cannot be found");
 
-    run_benchmark(scenario_name, scenario);
+#[derive(Debug)]
+pub struct ThreadStats {
+    duration: Duration,
+    failure_count: usize,
+}
+
+impl ThreadStats {
+    pub fn new(duration: Duration, failure_count: usize) -> ThreadStats {
+        ThreadStats {
+            duration,
+            failure_count,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ProducerRunStats<'a> {
+    scenario: &'a ProducerScenario,
+    failure_count: usize,
+    duration: Duration,
+}
+
+impl<'a> ProducerRunStats<'a> {
+    pub fn new(scenario: &'a ProducerScenario) -> ProducerRunStats<'a> {
+        ProducerRunStats {
+            scenario,
+            failure_count: 0,
+            duration: Duration::from_secs(0),
+        }
+    }
+
+    pub fn add_thread_stats(&mut self, thread_stats: &ThreadStats) {
+        self.failure_count += thread_stats.failure_count;
+        self.duration = cmp::max(self.duration, thread_stats.duration);
+    }
+
+    pub fn print(&self) {
+        let time = Seconds(self.duration);
+        let messages = Messages::from(self.scenario.message_count);
+        let bytes = Bytes::from(self.scenario.message_count * self.scenario.message_size);
+
+        if self.failure_count != 0 {
+            println!(
+                "Warning: {} messages failed to be delivered",
+                self.failure_count
+            );
+        }
+
+        println!(
+            "* Produced {} ({}) in {} using {} thread{}\n    {}\n    {}",
+            messages,
+            bytes,
+            time,
+            self.scenario.threads,
+            if self.scenario.threads > 1 { "s" } else { "" },
+            messages / time,
+            bytes / time
+        );
+    }
+}
+
+pub struct ProducerBenchmarkStats<'a> {
+    scenario: &'a ProducerScenario,
+    stats: Vec<ProducerRunStats<'a>>,
+}
+
+impl<'a> ProducerBenchmarkStats<'a> {
+    pub fn new(scenario: &'a ProducerScenario) -> ProducerBenchmarkStats<'a> {
+        ProducerBenchmarkStats {
+            scenario,
+            stats: Vec::new(),
+        }
+    }
+
+    pub fn add_stat(&mut self, scenario_stat: ProducerRunStats<'a>) {
+        self.stats.push(scenario_stat)
+    }
+
+    pub fn print(&self) {
+        let time = Seconds(self.stats.iter().map(|stat| stat.duration).sum());
+        let messages = Messages::from(self.scenario.message_count * self.stats.len() as u64);
+        let bytes = Bytes(messages.0 * self.scenario.message_size as f64);
+
+        println!("Average: {}, {}", messages / time, bytes / time);
+    }
 }

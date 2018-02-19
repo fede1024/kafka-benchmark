@@ -21,11 +21,11 @@ fn map_to_client_config(config_map: &HashMap<String, String>) -> ClientConfig {
         })
 }
 
-fn zero() -> usize {
+fn zero() -> u64 {
     0
 }
 
-fn one() -> usize {
+fn one() -> u64 {
     1
 }
 
@@ -35,15 +35,15 @@ fn one() -> usize {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProducerScenario {
     #[serde(default = "one")]
-    pub repeat_times: usize,
+    pub repeat_times: u64,
     #[serde(default = "zero")]
-    pub repeat_pause: usize,
+    pub repeat_pause: u64,
     #[serde(default = "one")]
-    pub threads: usize,
+    pub threads: u64,
     #[serde(default)]
     pub producer: ProducerType,
-    pub message_size: usize,
-    pub message_count: usize,
+    pub message_size: u64,
+    pub message_count: u64,
     pub topic: String,
     pub producer_config: HashMap<String, String>,
 }
@@ -74,20 +74,37 @@ impl Default for ProducerType {
 //
 // ********** CONSUMER CONFIG **********
 //
+
+// TODO: separate the structure matching the file configuration and
+// the structure used internally. Or alternatively implement deserialization directly,
+// without serde.
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsumerScenario {
     #[serde(default = "one")]
-    pub repeat_times: usize,
+    pub repeat_times: u64,
     #[serde(default = "zero")]
-    pub repeat_pause: usize,
-    #[serde(default = "one")]
-    pub threads: usize,
+    pub repeat_pause: u64,
     #[serde(default)]
     pub consumer: ConsumerType,
-    #[serde(default = "zero")]
-    pub message_count: usize,  // Zero means consume the whole topic
+    pub limit: Option<u64>,
     pub topic: String,
+    #[serde(default)]
     pub consumer_config: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Range {
+    /// Consume the whole topic
+    All,
+    /// Consume from the beginning, up to the specified number of messages.
+    FirstNMessages(u64),
+}
+
+impl Default for Range {
+    fn default() -> Self {
+        Range::All
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,12 +120,18 @@ impl Default for ConsumerType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConsumerBenchmarkConfig {
-    pub scenarios: HashMap<String, ProducerScenario>,
+pub struct ConsumerBenchmark {
+    pub default_consumer_config: HashMap<String, String>,
+    pub scenarios: HashMap<String, ConsumerScenario>,
 }
 
-impl ConsumerScenario {
-    pub fn generate_consumer_config(&self) -> ClientConfig {
-        map_to_client_config(&self.consumer_config)
+// This api should be improved.
+impl ConsumerBenchmark {
+    pub fn generate_consumer_config(&self, scenario: &ConsumerScenario) -> ClientConfig {
+        let mut merged_config = self.default_consumer_config.clone();
+        for (key, value) in scenario.consumer_config.iter() {
+            merged_config.insert(key.clone(), value.clone());
+        }
+        map_to_client_config(&merged_config)
     }
 }

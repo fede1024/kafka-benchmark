@@ -12,6 +12,7 @@ extern crate serde_yaml;
 mod config;
 mod consumer;
 mod producer;
+mod units;
 
 use config::from_yaml;
 
@@ -29,7 +30,7 @@ fn main() {
     let scenario_name = matches.value_of("scenario").unwrap();
 
     match matches.value_of("benchmark_type").unwrap() {
-        "consumer" => println!("Not yet implemented"),
+        "consumer" => consumer::run(&from_yaml(config_file), scenario_name),
         "producer" => producer::run(&from_yaml(config_file), scenario_name),
         _ => println!("Undefined benchmark type. Please use 'producer' or 'consumer'"),
     }
