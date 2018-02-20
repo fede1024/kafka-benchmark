@@ -33,7 +33,7 @@ impl ConsumerBenchmarkStats {
 }
 
 fn get_topic_partitions_count<X: ConsumerContext, C: Consumer<X>>(consumer: &C, topic_name: &str) -> Option<usize> {
-    let metadata = consumer.fetch_metadata(Some(topic_name), 30000)
+    let metadata = consumer.fetch_metadata(Some(topic_name), Duration::from_secs(30))
         .expect("Failed to fetch metadata");
 
     if metadata.topics().is_empty() {
@@ -76,7 +76,7 @@ fn run_base_consumer_benchmark(scenario: &ConsumerScenario) -> ConsumerBenchmark
     let mut bytes = 0;
 
     while messages < limit {
-        match consumer.poll(1000) {
+        match consumer.poll(Duration::from_secs(1)) {
             None => {},
             Some(Ok(message)) => {
                 if messages == 0 {

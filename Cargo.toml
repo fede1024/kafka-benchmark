@@ -15,7 +15,7 @@ futures = "0.1.0"
 log = "0.4.0"
 rand = "0.4.0"
 # rdkafka = "0.14.0"
-rdkafka = { path = "/home/fede/rust/rust-rdkafka/" }
+rdkafka = { git = "https://github.com/fede1024/rust-rdkafka.git" }
 serde = "1.0.0"
 serde_derive = "1.0.0"
 serde_yaml = "0.7.0"

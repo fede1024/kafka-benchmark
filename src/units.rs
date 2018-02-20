@@ -28,16 +28,6 @@ impl fmt::Display for Seconds {
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
 pub struct Messages(pub f64);
 
-impl Messages {
-    pub fn zero() -> Messages {
-        Messages(0f64)
-    }
-
-    pub fn is_zero(&self) -> bool {
-        self.0 == 0f64
-    }
-}
-
 impl Default for Messages {
     fn default() -> Messages {
         Messages(0f64)
@@ -91,18 +81,6 @@ const KB: f64 = (1<<10) as f64;
 
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
 pub struct Bytes(pub f64);
-
-impl Bytes {
-    pub fn zero() -> Bytes {
-        Bytes(0f64)
-    }
-}
-
-impl Default for Bytes {
-    fn default() -> Bytes {
-        Bytes(0f64)
-    }
-}
 
 impl From<u64> for Bytes {
     fn from(amount: u64) -> Bytes {

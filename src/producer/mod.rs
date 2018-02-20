@@ -56,7 +56,7 @@ fn base_producer_thread(
         .send_copy::<str, str>(&scenario.topic, None, Some("warmup"), None, (), None)
         .expect("Producer error");
     failure_counter.store(0, Ordering::Relaxed);
-    producer.flush(10_000);
+    producer.flush(Duration::from_secs(10));
 
     let per_thread_messages = if thread_id == 0 {
         scenario.message_count - scenario.message_count / scenario.threads * (scenario.threads - 1)
@@ -75,7 +75,7 @@ fn base_producer_thread(
                 None,
             ) {
                 Err(KafkaError::MessageProduction(RDKafkaError::QueueFull)) => {
-                    producer.poll(10);
+                    producer.poll(Duration::from_millis(10));
                     continue;
                 }
                 Err(e) => {
@@ -85,9 +85,9 @@ fn base_producer_thread(
                 Ok(_) => break,
             }
         }
-        producer.poll(0);
+        producer.poll(Duration::from_secs(0));
     }
-    producer.flush(120_000);
+    producer.flush(Duration::from_secs(120));
     ThreadStats::new(start.elapsed(), failure_counter.load(Ordering::Relaxed))
 }
 
@@ -143,7 +143,7 @@ fn future_producer_thread(
         }
     }
     failures += wait_all(futures);
-    producer.flush(120_000);
+    producer.flush(Duration::from_secs(120));
     ThreadStats::new(start.elapsed(), failures)
 }
 

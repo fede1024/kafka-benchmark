@@ -124,8 +124,8 @@ pub struct ConsumerScenario {
 
 fn or_expect<T: Clone>(first: &Option<T>, second: &Option<T>, name: &str) -> T {
     first.as_ref()
-        .map(|config| config.clone())
-        .or(second.clone())
+        .cloned()
+        .or_else(|| second.clone())
         .expect(&format!("Missing configuration parameter: {}", name))
 }
 
