@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 mod content;
 
 use self::content::CachedMessages;
-use super::config::{ProducerBenchmarkConfig, ProducerType, ProducerScenario};
+use super::config::{ProducerBenchmark, ProducerType, ProducerScenario};
 use super::units::{Bytes, Messages, Seconds};
 
 struct BenchmarkProducerContext {
@@ -46,10 +46,9 @@ fn base_producer_thread(
     scenario: &ProducerScenario,
     cache: &CachedMessages,
 ) -> ThreadStats {
-    let client_config = scenario.generate_producer_config();
     let producer_context = BenchmarkProducerContext::new();
     let failure_counter = Arc::clone(&producer_context.failure_counter);
-    let producer: BaseProducer<BenchmarkProducerContext> = client_config
+    let producer: BaseProducer<BenchmarkProducerContext> = scenario.client_config()
         .create_with_context(producer_context)
         .expect("Producer creation failed");
     producer
@@ -114,8 +113,8 @@ fn future_producer_thread(
     scenario: &ProducerScenario,
     cache: &CachedMessages,
 ) -> ThreadStats {
-    let client_config = scenario.generate_producer_config();
-    let producer: FutureProducer<_> = client_config.create().expect("Producer creation failed");
+    let producer: FutureProducer<_> = scenario.client_config()
+        .create().expect("Producer creation failed");
     let _ = producer
         .send_copy::<str, str>(&scenario.topic, None, Some("warmup"), None, None, 1000)
         .wait();
@@ -147,7 +146,7 @@ fn future_producer_thread(
     ThreadStats::new(start.elapsed(), failures)
 }
 
-pub fn run(config: &ProducerBenchmarkConfig, scenario_name: &str) {
+pub fn run(config: &ProducerBenchmark, scenario_name: &str) {
     let scenario = config
         .scenarios
         .get(scenario_name)
@@ -166,12 +165,10 @@ pub fn run(config: &ProducerBenchmarkConfig, scenario_name: &str) {
             .map(|thread_id| {
                 let scenario = scenario.clone();
                 let cache = Arc::clone(&cache);
-                thread::spawn(move || match scenario.producer {
-                    ProducerType::BaseProducer => {
-                        base_producer_thread(thread_id, &scenario, &cache)
-                    }
-                    ProducerType::FutureProducer => {
-                        future_producer_thread(thread_id, &scenario, &cache)
+                thread::spawn(move || {
+                    match scenario.producer_type {
+                        ProducerType::BaseProducer => base_producer_thread(thread_id, &scenario, &cache),
+                        ProducerType::FutureProducer => future_producer_thread(thread_id, &scenario, &cache),
                     }
                 })
             })

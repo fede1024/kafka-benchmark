@@ -4,7 +4,6 @@ extern crate env_logger;
 extern crate futures;
 extern crate rand;
 extern crate rdkafka;
-extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_yaml;
@@ -14,7 +13,7 @@ mod consumer;
 mod producer;
 mod units;
 
-use config::{ConsumerBenchmark, from_yaml};
+use config::{ConsumerBenchmark, ProducerBenchmark};
 
 fn main() {
     let matches = clap_app!(app =>
@@ -31,7 +30,7 @@ fn main() {
 
     match matches.value_of("benchmark_type").unwrap() {
         "consumer" => consumer::run(&ConsumerBenchmark::from_file(config_file), scenario_name),
-        "producer" => producer::run(&from_yaml(config_file), scenario_name),
+        "producer" => producer::run(&ProducerBenchmark::from_file(config_file), scenario_name),
         _ => println!("Undefined benchmark type. Please use 'producer' or 'consumer'"),
     }
 }

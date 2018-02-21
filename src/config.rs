@@ -1,17 +1,10 @@
 use serde_yaml;
-use serde;
 
 use rdkafka::ClientConfig;
 
 use std::collections::HashMap;
 use std::fs::File;
 
-
-pub fn from_yaml<T>(path: &str) -> T
-where T: for<'de> serde::Deserialize<'de> {
-    let input_file = File::open(path).expect("Failed to open configuration file");
-    serde_yaml::from_reader(input_file).expect("Failed to parse configuration file")
-}
 
 fn map_to_client_config(config_map: &HashMap<String, String>) -> ClientConfig {
     config_map
@@ -22,42 +15,43 @@ fn map_to_client_config(config_map: &HashMap<String, String>) -> ClientConfig {
         })
 }
 
-fn zero() -> u64 {
-    0
+fn or_expect<T: Clone>(first: &Option<T>, second: &Option<T>, name: &str) -> T {
+    first.as_ref()
+        .cloned()
+        .or_else(|| second.clone())
+        .expect(&format!("Missing configuration parameter: {}", name))
 }
 
-fn one() -> u64 {
-    1
-}
 
 //
 // ********** PRODUCER CONFIG **********
 //
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProducerScenario {
-    #[serde(default = "one")]
-    pub repeat_times: u64,
-    #[serde(default = "zero")]
-    pub repeat_pause: u64,
-    #[serde(default = "one")]
-    pub threads: u64,
-    #[serde(default)]
-    pub producer: ProducerType,
-    pub message_size: u64,
-    pub message_count: u64,
-    pub topic: String,
-    pub producer_config: HashMap<String, String>,
+
+/// The on-file producer benchmark format.
+#[derive(Debug, Serialize, Deserialize)]
+struct ProducerBenchmarkFileConfig {
+    default: ProducerScenarioFileConfig,
+    scenarios: HashMap<String, ProducerScenarioFileConfig>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProducerBenchmarkConfig {
-    pub scenarios: HashMap<String, ProducerScenario>,
-}
-
-impl ProducerScenario {
-    pub fn generate_producer_config(&self) -> ClientConfig {
-        map_to_client_config(&self.producer_config)
+impl ProducerBenchmarkFileConfig {
+    fn from_file(path: &str) -> ProducerBenchmarkFileConfig {
+        let input_file = File::open(path).expect("Failed to open configuration file");
+        serde_yaml::from_reader(input_file).expect("Failed to parse configuration file")
     }
+}
+
+/// The on-file producer scenario benchmark format.
+#[derive(Debug, Serialize, Deserialize)]
+struct ProducerScenarioFileConfig {
+    repeat_times: Option<u64>,
+    repeat_pause: Option<u64>,
+    threads: Option<u64>,
+    producer_type: Option<ProducerType>,
+    message_size: Option<u64>,
+    message_count: Option<u64>,
+    topic: Option<String>,
+    producer_config: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,17 +60,70 @@ pub enum ProducerType {
     FutureProducer,
 }
 
-impl Default for ProducerType {
-    fn default() -> Self {
-        ProducerType::BaseProducer
+/// The producer scenario configuration used in benchmarks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProducerScenario {
+    pub repeat_times: u64,
+    pub repeat_pause: u64,
+    pub threads: u64,
+    pub producer_type: ProducerType,
+    pub message_size: u64,
+    pub message_count: u64,
+    pub topic: String,
+    pub producer_config: HashMap<String, String>,
+}
+
+impl ProducerScenario {
+    fn from_file_config(default: &ProducerScenarioFileConfig, scenario: &ProducerScenarioFileConfig) -> ProducerScenario {
+        let mut producer_config = default.producer_config.clone().unwrap_or_default();
+        if let Some(ref config) = scenario.producer_config {
+            for (key, value) in config {
+                producer_config.insert(key.clone(), value.clone());
+            }
+        }
+        if producer_config.is_empty() {
+            panic!("No producer configuration provided")
+        }
+        ProducerScenario {
+            repeat_times: or_expect(&scenario.repeat_times, &default.repeat_times, "repeat_times"),
+            repeat_pause: or_expect(&scenario.repeat_pause, &default.repeat_pause, "repeat_pause"),
+            threads: or_expect(&scenario.threads, &default.threads, "threads"),
+            producer_type: or_expect(&scenario.producer_type, &default.producer_type, "producer_type"),
+            message_size: or_expect(&scenario.message_size, &default.message_size, "message_size"),
+            message_count: or_expect(&scenario.message_count, &default.message_count, "message_count"),
+            topic: or_expect(&scenario.topic, &default.topic, "topic"),
+            producer_config,
+        }
+    }
+
+    pub fn client_config(&self) -> ClientConfig {
+        map_to_client_config(&self.producer_config)
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProducerBenchmark {
+    pub scenarios: HashMap<String, ProducerScenario>,
+}
+
+impl ProducerBenchmark {
+    pub fn from_file(path: &str) -> ProducerBenchmark {
+        let raw_config = ProducerBenchmarkFileConfig::from_file(path);
+        let defaults = raw_config.default;
+        ProducerBenchmark {
+            scenarios: raw_config.scenarios.into_iter()
+                .map(|(name, scenario)| (name, ProducerScenario::from_file_config(&defaults, &scenario)))
+                .collect()
+        }
+    }
+}
+
 
 //
 // ********** CONSUMER CONFIG **********
 //
 
-
+/// The on-file consumer benchmark format.
 #[derive(Debug, Serialize, Deserialize)]
 struct ConsumerBenchmarkFileConfig {
     default: ConsumerScenarioFileConfig,
@@ -90,6 +137,7 @@ impl ConsumerBenchmarkFileConfig {
     }
 }
 
+/// The on-file consumer scenario benchmark format.
 #[derive(Debug, Serialize, Deserialize)]
 struct ConsumerScenarioFileConfig {
     repeat_times: Option<u64>,
@@ -106,12 +154,7 @@ pub enum ConsumerType {
     StreamConsumer,
 }
 
-impl Default for ConsumerType {
-    fn default() -> Self {
-        ConsumerType::BaseConsumer
-    }
-}
-
+/// The consumer scenario configuration used in benchmarks.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConsumerScenario {
     pub repeat_times: u64,
@@ -120,13 +163,6 @@ pub struct ConsumerScenario {
     pub message_limit: i64,
     pub topic: String,
     pub consumer_config: HashMap<String, String>,
-}
-
-fn or_expect<T: Clone>(first: &Option<T>, second: &Option<T>, name: &str) -> T {
-    first.as_ref()
-        .cloned()
-        .or_else(|| second.clone())
-        .expect(&format!("Missing configuration parameter: {}", name))
 }
 
 impl ConsumerScenario {
@@ -162,25 +198,11 @@ pub struct ConsumerBenchmark {
 impl ConsumerBenchmark {
     pub fn from_file(path: &str) -> ConsumerBenchmark {
         let raw_config = ConsumerBenchmarkFileConfig::from_file(path);
-        let mut scenarios = HashMap::new();
-
-        for (name, scenario) in raw_config.scenarios {
-            scenarios.insert(name.clone(), ConsumerScenario::from_file_config(&raw_config.default, &scenario));
-        }
-
+        let defaults = raw_config.default;
         ConsumerBenchmark {
-            scenarios
+            scenarios: raw_config.scenarios.into_iter()
+                .map(|(name, scenario)| (name, ConsumerScenario::from_file_config(&defaults, &scenario)))
+                .collect()
         }
     }
 }
-
-// This api should be improved.
-//impl ConsumerBenchmark {
-//    pub fn generate_consumer_config(&self, scenario: &ConsumerScenario) -> ClientConfig {
-//        let mut merged_config = self.default_consumer_config.clone();
-//        for (key, value) in scenario.consumer_config.iter() {
-//            merged_config.insert(key.clone(), value.clone());
-//        }
-//        map_to_client_config(&merged_config)
-//    }
-//}
