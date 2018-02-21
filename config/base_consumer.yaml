@@ -12,15 +12,14 @@ default:
     session.timeout.ms: 6000
 
 scenarios:
-  10B_full_topic:
+  10B_100MB:
     topic: benchmark_topic_10B
-    message_limit: -1
+    message_limit: 10485760
 
-  1KB_one_million:
-    consumer_type: BaseConsumer
+  1KB_1GB:
     topic: benchmark_topic_1KB
-    message_limit: 1000000
+    message_limit: 1048576
 
-  one_million_stream:
-    consumer_type: StreamConsumer
-    message_limit: 1000000
+  10KB_1GB:
+    topic: benchmark_topic_10KB
+    message_limit: 104858

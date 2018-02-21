@@ -1,0 +1,25 @@
+---
+default:
+  repeat_times: 1
+  repeat_pause: 0
+  consumer_type: StreamConsumer
+  topic: test_topic1
+  consumer_config:
+    bootstrap.servers: localhost:9092
+    group.id: 'benchmark_consumer_group'
+    auto.offset.reset: smallest
+    enable.auto.commit: false
+    session.timeout.ms: 6000
+
+scenarios:
+  10B_100MB:
+    topic: benchmark_topic_10B
+    message_limit: 10485760
+
+  1KB_1GB:
+    topic: benchmark_topic_1KB
+    message_limit: 1048576
+
+  10KB_1GB:
+    topic: benchmark_topic_10KB
+    message_limit: 104858

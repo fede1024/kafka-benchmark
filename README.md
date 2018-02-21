@@ -25,7 +25,7 @@ Core(TM) i7-4712HQ CPU @ 2.30GHz:
 → cargo install
 [...]
 
-→ kafka-benchmark producer config/base_producer_benchmark.yaml msg_bursts_base
+→ kafka-benchmark producer config/base_producer.yaml msg_bursts_base
 Scenario: msg_bursts_base, repeat 5 times, 10s pause after each
 * Produced 20000000 messages (190.735 MB) in 5.045 seconds using 6 threads
     3964321 messages/s
@@ -44,7 +44,7 @@ Scenario: msg_bursts_base, repeat 5 times, 10s pause after each
     37.874 MB/s
 Average: 3964950 messages/s, 37.813 MB/s
 
-→ kafka-benchmark produce config/base_producer_benchmark.yaml 1KB_bursts
+→ kafka-benchmark produce config/base_producer.yaml 1KB_bursts
 Scenario: 1KB_bursts, repeat 3 times, 20s pause after each
 * Produced 200000 messages (1.863 GB) in 2.800 seconds using 6 threads
     71429 messages/s
