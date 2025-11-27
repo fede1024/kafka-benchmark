@@ -1,8 +1,11 @@
-use rdkafka::util::duration_to_millis;
-
 use std::fmt;
 use std::ops::{Add, AddAssign, Div};
 use std::time::Duration;
+
+// Helper function to convert Duration to milliseconds
+fn duration_to_millis(duration: Duration) -> u64 {
+    duration.as_millis() as u64
+}
 
 //
 // ********** SECONDS **********

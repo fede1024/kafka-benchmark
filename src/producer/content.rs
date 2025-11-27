@@ -4,12 +4,11 @@ pub struct CachedMessages(Vec<Vec<u8>>);
 
 impl CachedMessages {
     pub fn new(msg_size: u64, cache_size: u64) -> CachedMessages {
+        let mut rng = rand::thread_rng();
         let messages = (0..(cache_size / msg_size))
             .map(|_| {
-                rand::thread_rng()
-                    .gen_iter::<u8>()
-                    .map(|v| v % 86 + 40)
-                    .take(msg_size as usize)
+                (0..msg_size)
+                    .map(|_| (rng.gen::<u8>() % 86) + 40)
                     .collect::<Vec<u8>>()
             })
             .collect::<Vec<_>>();
@@ -23,7 +22,7 @@ impl<'a> IntoIterator for &'a CachedMessages {
 
     fn into_iter(self) -> Self::IntoIter {
         CachedMessagesIterator {
-            index: rand::thread_rng().gen_range(0, self.0.len()),
+            index: rand::thread_rng().gen_range(0..self.0.len()),
             cache: self,
         }
     }

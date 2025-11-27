@@ -1,8 +1,8 @@
 use futures::{self, Future};
 use rdkafka::ClientContext;
-use rdkafka::error::{KafkaError, RDKafkaError};
-use rdkafka::producer::future_producer::DeliveryFuture;
-use rdkafka::producer::{BaseProducer, DeliveryResult, FutureProducer, ProducerContext};
+use rdkafka::error::{KafkaError, RDKafkaErrorCode};
+use rdkafka::producer::future_producer::OwnedDeliveryResult;
+use rdkafka::producer::{BaseProducer, DeliveryResult, FutureProducer, Producer, ProducerContext};
 
 use std::cmp;
 use std::iter::{IntoIterator, Iterator};
@@ -51,11 +51,13 @@ fn base_producer_thread(
     let producer: BaseProducer<BenchmarkProducerContext> = scenario.client_config()
         .create_with_context(producer_context)
         .expect("Producer creation failed");
-    producer
-        .send_copy::<str, str>(&scenario.topic, None, Some("warmup"), None, (), None)
-        .expect("Producer error");
+    let record = rdkafka::producer::BaseRecord::to(&scenario.topic)
+        .payload("warmup")
+        .key("")
+        .delivery_opaque(());
+    producer.send(record).expect("Producer error");
     failure_counter.store(0, Ordering::Relaxed);
-    producer.flush(Duration::from_secs(10));
+    let _ = producer.flush(Duration::from_secs(10));
 
     let per_thread_messages = if thread_id == 0 {
         scenario.message_count - scenario.message_count / scenario.threads * (scenario.threads - 1)
@@ -65,19 +67,17 @@ fn base_producer_thread(
     let start = Instant::now();
     for (count, content) in cache.into_iter().take(per_thread_messages as usize).enumerate() {
         loop {
-            match producer.send_copy::<[u8], [u8]>(
-                &scenario.topic,
-                Some(count as i32 % 3),
-                Some(content),
-                None,
-                (),
-                None,
-            ) {
-                Err(KafkaError::MessageProduction(RDKafkaError::QueueFull)) => {
+            let record = rdkafka::producer::BaseRecord::to(&scenario.topic)
+                .partition(count as i32 % 3)
+                .payload(content)
+                .key(&[] as &[u8])
+                .delivery_opaque(());
+            match producer.send(record) {
+                Err((KafkaError::MessageProduction(RDKafkaErrorCode::QueueFull), _)) => {
                     producer.poll(Duration::from_millis(10));
                     continue;
                 }
-                Err(e) => {
+                Err((e, _)) => {
                     println!("Error {:?}", e);
                     break;
                 }
@@ -86,20 +86,16 @@ fn base_producer_thread(
         }
         producer.poll(Duration::from_secs(0));
     }
-    producer.flush(Duration::from_secs(120));
+    let _ = producer.flush(Duration::from_secs(120));
     ThreadStats::new(start.elapsed(), failure_counter.load(Ordering::Relaxed))
 }
 
-fn wait_all(futures: Vec<DeliveryFuture>) -> usize {
+fn wait_all(futures: Vec<impl Future<Output = OwnedDeliveryResult>>) -> usize {
     let mut failures = 0;
     for future in futures {
-        match future.wait() {
-            Ok(Err(e)) => {
+        match futures::executor::block_on(future) {
+            Err((e, _)) => {
                 println!("Kafka error: {:?}", e);
-                failures += 1;
-            }
-            Err(futures::Canceled) => {
-                println!("Future cancelled");
                 failures += 1;
             }
             Ok(_) => {}
@@ -115,9 +111,10 @@ fn future_producer_thread(
 ) -> ThreadStats {
     let producer: FutureProducer<_> = scenario.client_config()
         .create().expect("Producer creation failed");
-    let _ = producer
-        .send_copy::<str, str>(&scenario.topic, None, Some("warmup"), None, None, 1000)
-        .wait();
+    let record = rdkafka::producer::FutureRecord::to(&scenario.topic)
+        .payload("warmup")
+        .key("");
+    let _ = futures::executor::block_on(producer.send(record, Duration::from_millis(1000)));
 
     let per_thread_messages = if thread_id == 0 {
         scenario.message_count - scenario.message_count / scenario.threads * (scenario.threads - 1)
@@ -128,21 +125,18 @@ fn future_producer_thread(
     let mut failures = 0;
     let mut futures = Vec::with_capacity(1_000_000);
     for (count, content) in cache.into_iter().take(per_thread_messages as usize).enumerate() {
-        futures.push(producer.send_copy::<[u8], [u8]>(
-            &scenario.topic,
-            Some(count as i32 % 3),
-            Some(content),
-            None,
-            None,
-            -1,
-        ));
+        let record = rdkafka::producer::FutureRecord::to(&scenario.topic)
+            .partition(count as i32 % 3)
+            .payload(content)
+            .key(&[] as &[u8]);
+        futures.push(producer.send(record, Duration::from_secs(0)));
         if futures.len() >= 1_000_000 {
             failures += wait_all(futures);
             futures = Vec::with_capacity(1_000_000);
         }
     }
     failures += wait_all(futures);
-    producer.flush(Duration::from_secs(120));
+    let _ = producer.flush(Duration::from_secs(120));
     ThreadStats::new(start.elapsed(), failures)
 }
 
