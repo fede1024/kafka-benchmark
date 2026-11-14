@@ -1,4 +1,8 @@
 # kafka-benchmark
+
+> [!WARNING]
+> **This project is no longer actively maintained.** This repository is kept for reference only and is not receiving updates.
+
 [![Join the chat at https://gitter.im/rust-rdkafka/Lobby](https://badges.gitter.im/rust-rdkafka/Lobby.svg)](https://gitter.im/rust-rdkafka/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 A tool to run programmable benchmarks on Kafka clusters.
